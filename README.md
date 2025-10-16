@@ -2,4 +2,5 @@ This project finds all chests and other storages given a region folder and inser
 
 
 Run chest_locator.py to populate the database
+
 Run list_storages.py to generate a map of the storages
