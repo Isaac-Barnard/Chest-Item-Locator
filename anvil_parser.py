@@ -5,6 +5,10 @@ import psycopg2
 from anvil import Region
 from psycopg2.extras import execute_values
 
+
+OVERRIDE_PARSE = False
+
+
 STORAGE_BASE_TYPES = {"minecraft:chest", "minecraft:trapped_chest", "minecraft:barrel",
                       "minecraft:shulker_box", "minecraft:dispenser", "minecraft:dropper",
                       "minecraft:hopper", "minecraft:furnace", "minecraft:blast_furnace", "minecraft:smoker",
@@ -43,14 +47,17 @@ def is_valid_storage(keys: list) -> bool:
 def trim_id(item_id: str) -> str:
     return item_id.split('minecraft:')[-1]
 
-def get_sub_storage_contents(container, slot_prepend):
+def get_sub_storage_contents(container, slot_prepend, item_json):
     container_items = []
     
     for item in container:
         sub_count = 0
 
         slot = item.get('slot') or item.get('Slot')
-        slot = slot_prepend + slot.value * -1
+        if slot:
+            slot = slot_prepend + slot.value * -1
+        else:
+            slot = -1
         inner = item.get('item')
         if inner:
             count = inner.get('Count') or inner.get('count')
@@ -59,7 +66,7 @@ def get_sub_storage_contents(container, slot_prepend):
             count = item.get('Count') or item.get('count')
             item_id = item.get('id') or item.get('Id') or item.get('ID')
 
-        container_items.append({
+        item_json.append({
             "id": trim_id(item_id.value),
             "count": count.value,
             "slot": slot,
@@ -76,9 +83,7 @@ def get_sub_storage_contents(container, slot_prepend):
                         )
             if container:
                 sub_count += 1
-                container_items.append(get_sub_storage_contents(container, slot_prepend + sub_count * -1000))
-
-    return container_items
+                item_json.append(get_sub_storage_contents(container, slot_prepend + sub_count * -1000, item_json))
 
 def get_all_storages(region_path):
     print (f"Beginning to parse region files from {region_path}")
@@ -135,7 +140,7 @@ def get_all_storages(region_path):
                                         )
                             if container:
                                 sub_count += 1
-                                items.append(get_sub_storage_contents(container, sub_count * -10000))
+                                get_sub_storage_contents(container, sub_count * -10000, items)
 
                     
                     region_data.append({
@@ -144,11 +149,12 @@ def get_all_storages(region_path):
                         "y": entity.get('y').value,
                         "z": entity.get('z').value,
                         "items": items,
-                        "region_file": region_path.split("/")[-1],
+                        "region_file": file.split("/")[-1],
                         "chunk_relative_pos": f"{x},{z}",
                         "chunk_index": x * 32 + z
                     })
         storage_data.extend(region_data)
+        print(f"Parsed {file}: {len(region_data)} storages found")
     
     print(f"Parsed {region_path}: {len(storage_data)} storages found")
     return storage_data
@@ -156,6 +162,8 @@ def get_all_storages(region_path):
 def write_to_json(jsondata):
     with open(os.path.join(os.path.dirname(__file__), 'output.json'), 'w', encoding='utf-8') as f:
         json.dump(jsondata, f, ensure_ascii=False, indent=2)
+
+    print(f"Wrote storage json to {os.path.join(os.path.dirname(__file__), 'output.json')}")
 
 def clear_tables(conn):
     with conn.cursor() as cur:
@@ -202,6 +210,8 @@ def bulk_insert_storage(conn, all_storage_data):
         for s in all_storage_data:
             storage_id = coord_to_id[(s["x"], s["y"], s["z"])]
             for item in s["items"]:
+                if not item:
+                    continue
                 item_values.append(
                     (
                         storage_id,
@@ -225,9 +235,13 @@ def bulk_insert_storage(conn, all_storage_data):
 
 
 def main():
-    all_storage_data = get_all_storages(REGION_DIR)
-
-    write_to_json(all_storage_data)
+    if not OVERRIDE_PARSE:
+        all_storage_data = get_all_storages(REGION_DIR)
+        print("Parsed all region files")
+        write_to_json(all_storage_data)
+    else:
+        with open(os.path.join(os.path.dirname(__file__), 'output.json'), "r", encoding="utf-8") as f:
+            all_storage_data = json.load(f)
 
     conn = psycopg2.connect(**DB_CONNECT_KW)
     clear_tables(conn)
