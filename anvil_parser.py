@@ -43,10 +43,14 @@ def is_valid_storage(keys: list) -> bool:
 def trim_id(item_id: str) -> str:
     return item_id.split('minecraft:')[-1]
 
-def get_sub_storage_contents(container):
+def get_sub_storage_contents(container, slot_prepend):
     container_items = []
     
     for item in container:
+        sub_count = 0
+
+        slot = item.get('slot') or item.get('Slot')
+        slot = slot_prepend + slot.value * -1
         inner = item.get('item')
         if inner:
             count = inner.get('Count') or inner.get('count')
@@ -58,9 +62,21 @@ def get_sub_storage_contents(container):
         container_items.append({
             "id": trim_id(item_id.value),
             "count": count.value,
-            "slot": -1,
+            "slot": slot,
             "display_name": item_id.value
         })
+
+        components = item.get('components') or item.get('Components')
+        if components:
+            container = (
+                        components.get('minecraft:container')
+                        or components.get('container')
+                        or components.get('minecraft:bundle_contents')
+                        or components.get('bundle_contents')
+                        )
+            if container:
+                sub_count += 1
+                container_items.append(get_sub_storage_contents(container, slot_prepend + sub_count * -1000))
 
     return container_items
 
@@ -85,6 +101,7 @@ def get_all_storages(region_path):
                     continue
 
                 for entity in block_entities:
+                    sub_count = 0
                     entity_id = entity.get('id').value
                     
                     if not is_storage_block(entity_id):
@@ -117,7 +134,8 @@ def get_all_storages(region_path):
                                         or components.get('bundle_contents')
                                         )
                             if container:
-                                items.append(get_sub_storage_contents(container))
+                                sub_count += 1
+                                items.append(get_sub_storage_contents(container, sub_count * -10000))
 
                     
                     region_data.append({
