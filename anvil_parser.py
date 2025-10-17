@@ -40,6 +40,30 @@ def is_valid_storage(keys: list) -> bool:
     
     return True
 
+def trim_id(item_id: str) -> str:
+    return item_id.split('minecraft:')[-1]
+
+def get_sub_storage_contents(container):
+    container_items = []
+    
+    for item in container:
+        inner = item.get('item')
+        if inner:
+            count = inner.get('Count') or inner.get('count')
+            item_id = inner.get('id') or inner.get('Id') or inner.get('ID')
+        else:
+            count = item.get('Count') or item.get('count')
+            item_id = item.get('id') or item.get('Id') or item.get('ID')
+
+        container_items.append({
+            "id": trim_id(item_id.value),
+            "count": count.value,
+            "slot": -1,
+            "display_name": item_id.value
+        })
+
+    return container_items
+
 def get_all_storages(region_path):
     print (f"Beginning to parse region files from {region_path}")
     directory = os.listdir(region_path)
@@ -78,13 +102,26 @@ def get_all_storages(region_path):
                         item_id = item.get("id") or item.get("Id") or item.get("ID")
 
                         items.append({
-                                "id": item_id.value,
+                                "id": trim_id(item_id.value),
                                 "count": count.value,
-                                "slot": slot.value
+                                "slot": slot.value,
+                                "display_name": item_id.value
                         })
+
+                        components = item.get('components') or item.get('Components')
+                        if components:
+                            container = (
+                                        components.get('minecraft:container')
+                                        or components.get('container')
+                                        or components.get('minecraft:bundle_contents')
+                                        or components.get('bundle_contents')
+                                        )
+                            if container:
+                                items.append(get_sub_storage_contents(container))
+
                     
                     region_data.append({
-                        "entity_id": entity_id.split('minecraft:')[-1],
+                        "entity_id": trim_id(entity_id),
                         "x": entity.get('x').value,
                         "y": entity.get('y').value,
                         "z": entity.get('z').value,
