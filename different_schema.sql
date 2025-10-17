@@ -22,4 +22,4 @@ CREATE TABLE IF NOT EXISTS storages_inventories (
 
 CREATE INDEX IF NOT EXISTS idx_storages_xyz ON storages(x, y, z);
 CREATE INDEX IF NOT EXISTS idx_storage_inventories_itemid ON storages_inventories(item_id);
-CREATE INDEX IF NOT EXISTS idx_storage_inventories_storageid ON storage_inventories(storage_id);
+CREATE INDEX IF NOT EXISTS idx_storage_inventories_storageid ON storages_inventories(storage_id);
