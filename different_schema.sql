@@ -8,10 +8,12 @@ CREATE TABLE IF NOT EXISTS storages (
     x               INT,
     y               INT,
     z               INT,
+    nation_company  TEXT,
+    irrelevant      BOOLEAN,
     UNIQUE (x, y, z)
 );
 
-CREATE TABLE IF NOT EXISTS storages_inventories (
+CREATE TABLE IF NOT EXISTS storage_inventory (
     id              BIGSERIAL PRIMARY KEY,
     storage_id      BIGINT REFERENCES storages(storage_id) ON DELETE CASCADE,
     slot            INT,
@@ -21,5 +23,5 @@ CREATE TABLE IF NOT EXISTS storages_inventories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_storages_xyz ON storages(x, y, z);
-CREATE INDEX IF NOT EXISTS idx_storage_inventories_itemid ON storages_inventories(item_id);
-CREATE INDEX IF NOT EXISTS idx_storage_inventories_storageid ON storages_inventories(storage_id);
+CREATE INDEX IF NOT EXISTS idx_storage_inventory_itemid ON storage_inventory(item_id);
+CREATE INDEX IF NOT EXISTS idx_storage_inventory_storageid ON storage_inventory(storage_id);

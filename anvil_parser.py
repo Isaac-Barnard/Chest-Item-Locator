@@ -5,9 +5,8 @@ import psycopg2
 from anvil import Region
 from psycopg2.extras import execute_values
 
-
+# True will pull output,json. Not true won't do that. It will do a different process, such as, pulling the data from the region folder.
 OVERRIDE_PARSE = False
-
 
 STORAGE_BASE_TYPES = {"minecraft:chest", "minecraft:trapped_chest", "minecraft:barrel",
                       "minecraft:shulker_box", "minecraft:dispenser", "minecraft:dropper",
@@ -23,8 +22,8 @@ REGION_DIR = os.path.join(os.path.dirname(__file__), "region")
 
 DB_CONNECT_KW = {
     "dbname": "minecraft_world",
-    "user": "website",           # or your DB user
-    "password": "Bl0ckG@me",   # set this to your Postgres password
+    "user": "un_project_user",           # or your DB user
+    "password": "passtheword",   # set this to your Postgres password
     "host": "localhost",
     "port": 5432
 }
@@ -150,7 +149,6 @@ def get_all_storages(region_path):
                         "z": entity.get('z').value,
                         "items": items,
                         "region_file": file.split("/")[-1],
-                        "chunk_relative_pos": f"{x},{z}",
                         "chunk_index": x * 32 + z
                     })
         storage_data.extend(region_data)
@@ -167,7 +165,7 @@ def write_to_json(jsondata):
 
 def clear_tables(conn):
     with conn.cursor() as cur:
-        cur.execute("TRUNCATE TABLE storage_items CASCADE;")
+        cur.execute("TRUNCATE TABLE storage_inventory CASCADE;")
         cur.execute("TRUNCATE TABLE storages RESTART IDENTITY CASCADE;")
         conn.commit()
         print("Cleared storage tables.")
@@ -180,7 +178,6 @@ def bulk_insert_storage(conn, all_storage_data):
             (
                 s["region_file"],
                 s["chunk_index"],
-                s["chunk_relative_pos"],
                 s["entity_id"],
                 s["x"],
                 s["y"],
@@ -191,7 +188,7 @@ def bulk_insert_storage(conn, all_storage_data):
 
         storage_insert_query = """
             INSERT INTO storages (
-                region_file, chunk_index, chunk_relative_pos, entity_id, x, y, z
+                region_file, chunk_index, entity_id, x, y, z
             )
             VALUES %s
             ON CONFLICT (x, y, z) DO NOTHING;
@@ -224,7 +221,7 @@ def bulk_insert_storage(conn, all_storage_data):
 
         if item_values:
             item_insert_query = """
-                INSERT INTO storage_items (storage_id, slot, item_id, count, display_name)
+                INSERT INTO storage_inventory (storage_id, slot, item_id, count, display_name)
                 VALUES %s
             """
             execute_values(cur, item_insert_query, item_values)
